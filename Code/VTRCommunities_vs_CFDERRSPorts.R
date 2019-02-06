@@ -95,4 +95,8 @@ for(i in seq_along(port.search)){
 }
 
 # Alright, so that helps a little bit. We could manually enter these. For the other ones, those are all going to be combinations of ports, I think?
+find<- "REEDVILLE"
+find.df<- data.frame(cfderrs.dat[grepl(find, cfderrs.dat$BRAD_PORT_NAME_STATE),])
+find.df
 
+# To fill these in, I went through the VTR_CFDERRS_Comparison file that is generated from the code above. For one's with NAs for Brad's stuff, I then searched the CFDERRS data and added them in manually. I tried to cover all combinations of things. For some, this means we now have multiple rows for the CFDERRS stuff for one JGS community (for example: Stonington, Mystic, Pawcatuck has two rows for Brad/CFDERRS stuff as Stonington and Mystic are unique ports). This was pretty straight forward, with a few exceptions. Like "Prospect" -- there is a Prospect Township and a Prospect Harbor. I only included the Harbor as the Township was island and a long ways from Gouldsboro/Corea and other ports in that JGS community. 
