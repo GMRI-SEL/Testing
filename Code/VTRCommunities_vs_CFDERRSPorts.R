@@ -28,10 +28,14 @@ vtr.dat<- readRDS(paste(vtr.path, "VTR fishing footprints by community and gear 
 
 # get the community names
 comm.names<- vtr.dat$JGS.COMMUNITY
+unique(comm.names) # 126 total communities
 
 ## Read in CFDERRS ports
 cfderrs.dat<- read_csv(paste(cfderrs.path, "port_name_list.csv", sep = "")) %>%
   dplyr::select(., -X1)
+unique(cfderrs.dat$PORT) # 748 unique port codes
+unique(cfderrs.dat$PORT_NAME) # Only 684 unique port names
+unique(cfderrs.dat$BRAD_PORT_NAME_STATE) # 708 unique brad port names
 
 ## Preliminary inspection -- what are going to be some known issues? what column of CFDERRS is most like the VTR community names
 head(comm.names)
@@ -52,19 +56,43 @@ unique(comm.dat$CommunityOnly)
 comm.dat$CommunityOnlyStripped<- str_replace_all(comm.dat$CommunityOnly, "[^[:alnum:]]", "")
 
 # Make the community merge column
-comm.dat$MatchColumn<- paste(comm.dat$CommunityOnlyStripped, comm.dat$StateOnly, sep = "_")
+comm.dat$MatchColumn<- paste(comm.dat$CommunityOnlyStripped, comm.dat$StateOnly, sep = "")
 
-# Now CFDERRS
-cfderrs.dat$PortNameStripped<- str_replace_all(cfderrs.dat$PORT_NAME, "[^[:alnum:]]", "")
-cfderrs.dat$MatchColumn<- paste(cfderrs.dat$PortNameStripped, cfderrs.dat$PORT_STATE, sep = "_")
+# Now CFDERRS. In Brad's, there is some addition bizarreness as there are many Port's that have Name (County). So, first get rid of anything bizarre in parentheses?
+cfderrs.dat$NoParen<- str_replace(cfderrs.dat$BRAD_PORT_NAME_STATE, " \\(.*\\)", "")
+# Once more, without space before paren
+cfderrs.dat$NoParen<- str_replace(cfderrs.dat$NoParen, "\\(.*\\)", "")
+
+# Looks good, no strip characters
+cfderrs.dat$MatchColumn<- str_replace_all(cfderrs.dat$NoParen, "[^[:alnum:]]", "")
 
 ## Merge them together and save the result
-comm.cfderrs.dat<- comm.dat %>%
+comm.dat.unique<- comm.dat[!duplicated(comm.dat$JGS),]
+comm.cfderrs.dat<- comm.dat.unique %>%
   left_join(., cfderrs.dat)
+names.missed<- comm.cfderrs.dat[is.na(comm.cfderrs.dat$BRAD_PORT_NAME_STATE),]
+write_csv(comm.cfderrs.dat, paste(out.path, "VTR_CFDERRS_Comparison.csv", sep = ""))
+write_csv(names.missed, paste(out.path, "VTR_CFDERRS_Missed.csv", sep = ""))
 
-## Unique only
-names.matched<- comm.cfderrs.dat[unique(comm.cfderrs.dat$JGS),]
-write_csv(names.matched, paste(out.path, "VTR_CFDERRS_Matched.csv", sep = ""))
+## What is going on with these misses?
+names.missed$JGS
 
-## Let's just pretend like I did a bunch of stuff here. See what happens if I commit these changes, push them to my local and then submit a pull request to the lab?
+# Some make a lot of sense -- a bunch of smaller ports combined into one community as in Stonington_Mystic_Pawcatuck_CT. Others though, seem weird. Like Provincetown_MA, Ocean City_MD, Beals Island_ME, Stueben_ME. 
+
+# Can we find those in the original CFDERRS data?
+port.search<- c("PROVINCETOWN", "OCEAN CITY", "BEALS", "STUEBEN")
+
+# All of the string detection stuff seems to be behaving oddly. Going back to the basics...
+for(i in seq_along(port.search)){
+  port.search.use<- port.search[i]
+  temp<- cfderrs.dat[grepl(port.search.use, cfderrs.dat$BRAD_PORT_NAME_STATE),]
+  
+  if(i == 1){
+    cfderrs.searched<- temp
+  } else {
+    cfderrs.searched<- bind_rows(cfderrs.searched, temp)
+  }
+}
+
+# Alright, so that helps a little bit. We could manually enter these. For the other ones, those are all going to be combinations of ports, I think?
 
